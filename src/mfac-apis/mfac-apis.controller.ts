@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete } from '@nestjs/common';
 import { MfacApisService } from './mfac-apis.service';
 import { CreateMfacApiDto } from './dto/create-mfac-api.dto';
 import { UpdateMfacApiDto } from './dto/update-mfac-api.dto';
@@ -18,18 +18,23 @@ export class MfacApisController {
     return this.mfacApisService.getAll(body);
   }
 
+  @Get('get-db-list')
+  getAllDb() {
+    return this.mfacApisService.getAllDb()
+  }
+
   @Post('get-one-by-name')
   getOneByName(@Body() body: any) {
     return this.mfacApisService.getOneByName(body);
   }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateMfacApiDto: UpdateMfacApiDto) {
-  //   return this.mfacApisService.update(+id, updateMfacApiDto);
-  // }
+  @Put('update-one')
+  updateOne(@Body() body: any) { 
+    return this.mfacApisService.updateOne(body)
+  }
 
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.mfacApisService.remove(+id);
-  // }
+  @Delete('delete-row')
+  deleteRowDb(@Body() body: any) {
+    return this.mfacApisService.deleteRowDb(body);
+  }
 }

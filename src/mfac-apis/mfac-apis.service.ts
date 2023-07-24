@@ -7,7 +7,7 @@ import { HttpStatus } from '@nestjs/common';
 @Injectable()
 export class MfacApisService {
   async create(createMfacApiDto: any) {
-    // console.log(createMfacApiDto)
+    console.log(createMfacApiDto)
     const __SCHEMA = "data_source_schema"
     let lastInsertedId: string
     const insertDataSrcQuery = `
@@ -17,8 +17,10 @@ export class MfacApisService {
     (?, ?)
     `
     const colNames = Object.keys(createMfacApiDto?.jsonArray[0])
-    const premiumConfigColNamesTypes = colNames.map(col => `${col.toLowerCase().replaceAll(" ", "_")} VARCHAR(45)`)
-    const premiumConfigColNames = colNames.map(col => `${col.toLowerCase().replaceAll(" ", "_")}`)
+    const premiumConfigColNamesTypes = colNames.map(col => `${col.toLowerCase().replaceAll(/[\/ ]/g , "_")} VARCHAR(45)`)
+    const premiumConfigColNames = colNames.map(
+      (col) => `${col.toLowerCase().replaceAll(/[\/ ]/g, '_')}`,
+    );
     const premiumConfigValues: any = createMfacApiDto?.jsonArray.map((values: any) => `${Object.values(values).map(item => `${item}`)}`)
     const tableName = createMfacApiDto?.fileName
     // [(7,5,6),'(7,5,6)',(7,5,6),("United states of america",5,6)]
@@ -46,7 +48,7 @@ export class MfacApisService {
       return {status: HttpStatus.OK, message: `${tableName} data inserted into the table`}
     } 
     catch(err) {
-      return HttpStatus.INTERNAL_SERVER_ERROR
+      return {statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: err}
     }
 
   }
@@ -73,7 +75,8 @@ export class MfacApisService {
         SELECT * FROM premium_config_schema.${reqBody.tableName}_${tableId};
       `
       const premiumConfigResponse = await entityManager.query(rateConfigTableQuery)
-      return premiumConfigResponse
+      console.log(premiumConfigResponse)
+      return {tableName: reqBody.tableName, data: premiumConfigResponse}
       
     }
     catch(err) {
@@ -104,7 +107,7 @@ export class MfacApisService {
         ;
       `
       const premiumConfigResponse = await entityManager.query(rateConfigTableQuery)
-      return premiumConfigResponse
+      return {tableName: reqBody.tableName, data: premiumConfigResponse}
       
     }
     catch(err) {
@@ -112,11 +115,87 @@ export class MfacApisService {
     }
   }
 
-  // update(id: number, updateMfacApiDto: UpdateMfacApiDto) {
-  //   return `This action updates a #${id} mfacApi`;
-  // }
+  async updateOne({tableName, data}) {
+    console.log(tableName, data)
+    const updateDataFormat = Object.entries(data).slice(1).map(([key, value]) => `${key} = '${value}'`).join(",")
+    const dataSourceQuery = `
+      SELECT 
+        id 
+      FROM 
+        data_source_schema.data_source
+      WHERE
+        file_name = "${tableName}"
+      ORDER BY id DESC
+      LIMIT 1
+      ;
+    `
+    const entityManager = getManager();
+    try {
+      const dataSrcResponse = await entityManager.query(dataSourceQuery);
+      const tableId = await dataSrcResponse[0].id;
+      const updateConfigQuery = `
+        UPDATE premium_config_schema.${tableName}_${tableId}
+        SET ${updateDataFormat}
+        WHERE id = ${data?.id}
+        ;
+      `;
+      console.log(updateConfigQuery)
+      const updateConfigResponse = await entityManager.query(updateConfigQuery);
+      return { tableName: tableName, data: updateConfigResponse };
+    } catch (err) {
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Something went wrong!',
+      };
+    }
+  }
 
-  // remove(id: number) {
-  //   return `This action removes a #${id} mfacApi`;
-  // }
+  async deleteRowDb({tableName, id}) {
+    const dataSourceQuery = `
+      SELECT 
+        id 
+      FROM 
+        data_source_schema.data_source
+      WHERE
+        file_name = "${tableName}"
+      ORDER BY id DESC
+      LIMIT 1
+      ;
+    `;
+
+    try {
+      const entityManager = getManager()
+      const dataSrcResponse = await entityManager.query(dataSourceQuery);
+      const tableId = await dataSrcResponse[0].id;
+  
+      const deleteRowQuery = `
+        DELETE FROM premium_config_schema.${tableName}_${tableId}
+        WHERE id = ${id};
+      `;
+      
+      const dbRes = await entityManager.query(deleteRowQuery)
+      return {message: dbRes, statusCode: HttpStatus.OK};
+    }
+    catch(err) {
+      return {statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: err}
+    }
+
+  }
+
+  async getAllDb () {
+    const dbQuery = `
+      SELECT 
+        *
+      FROM 
+        data_source_schema.data_source;
+    `
+    const entityManager = getManager()
+    try {
+      const dbResponse = await entityManager.query(dbQuery)
+      return {statusCode: HttpStatus.OK, data: dbResponse}
+    }
+    catch(err) {
+      return {statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: err}
+    }
+  }
 }
